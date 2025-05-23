@@ -70,6 +70,39 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
           );
         }
 
+        // Get promotion code info if used
+        let promo_code_id = null;
+        let promo_code_str = null;
+        if (
+          session.total_details &&
+          session.total_details.amount_discount > 0 &&
+          session.discounts &&
+          session.discounts.length > 0
+        ) {
+          // session.discounts is an array of objects with a 'promotion_code' property
+          promo_code_id = session.discounts[0].promotion_code;
+          if (promo_code_id) {
+            // Fetch the actual code string from Stripe API
+            const promo = await stripe.promotionCodes.retrieve(promo_code_id);
+            promo_code_str = promo.code;
+          }
+        }
+
+        // Save to promotion_code_usages table if a code was used
+        const discountAmount = session.total_details?.amount_discount
+          ? session.total_details.amount_discount / 100 // convert from cents to main unit
+          : 0;
+
+        if (promo_code_id && promo_code_str) {
+          // Get user_id for this order
+          const [orderRow] = await conn.query('SELECT user_id FROM orders WHERE order_id = ?', [order_id]);
+          const user_id = orderRow.length ? orderRow[0].user_id : null;
+          await conn.query(
+            'INSERT INTO promotion_code_usages (user_id, order_id, payment_id, promo_code_id, promo_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?)',
+            [user_id, order_id, session.payment_intent, promo_code_id, promo_code_str, discountAmount]
+          );
+        }
+
         console.log("Order completed:", order_id);
         break;
 
@@ -162,6 +195,7 @@ app.post('/checkout', async (req, res) => {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
+      allow_promotion_codes: true,
       success_url: `http://localhost:8888/success.html?id=${orderId}`,
       cancel_url: `http://localhost:8888/cancel.html?id=${orderId}`,
     });
