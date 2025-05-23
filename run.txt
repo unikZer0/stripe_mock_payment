@@ -1,0 +1,7 @@
+npm run dev
+npm start
+get your secret and public key from stripe.com then press it on .env
+stripe listen --forward-to http://localhost:8000/webhook
+stripe login ull got key and press it to /webhook in serverfile
+
+========u gotta create .env and then press your secret and public key

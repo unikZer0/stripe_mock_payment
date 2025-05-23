@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+</head>
+<body>
+    <div>
+        <label>
+            Product A (100,000 LAK)
+            <input type="number" name="productA" min="0" value="0">
+        </label>
+        <br>
+        <label>
+            Product B (200,000 LAK)
+            <input type="number" name="productB" min="0" value="0">
+        </label>
+        <br>
+        <button onclick="submitcheckout()">Submit</button>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.9.0/axios.min.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('pk_test_51RQ0e44c05uxt3S1Jyxe3UdmBquWBHa7AxJ3QewZwGlsJPCfBcr2D5KRdcGmaixV5r2Iqrann7XTwGrf5Bu3oKy900fzmwnhSe'); // <-- your public key
+
+        const submitcheckout = async () => {
+            const qtyA = parseInt(document.querySelector('input[name=productA]').value, 10) || 0;
+            const qtyB = parseInt(document.querySelector('input[name=productB]').value, 10) || 0;
+
+            if (qtyA === 0 && qtyB === 0) {
+                alert('Please select at least one product.');
+                return;
+            }
+
+            const order_items = [];
+            if (qtyA > 0) order_items.push({ product_id: 1, quantity: qtyA });
+            if (qtyB > 0) order_items.push({ product_id: 2, quantity: qtyB });
+
+            // For demo, always use user_id 1 (change as needed)
+            const bodyData = {
+                user_id: 1,
+                order_items
+            };
+
+            try {
+                const response = await axios.post('http://localhost:8000/checkout', bodyData);
+                const sessionId = response.data.sessionId;
+                if (!sessionId) {
+                    throw new Error("Session ID not returned from server");
+                }
+                await stripe.redirectToCheckout({ sessionId });
+            } catch (error) {
+                console.error("Error in placeorder:", error);
+                alert("Failed to place order: " + (error.response?.data?.error || error.message));
+            }
+        }
+    </script>
+</body>
+</html>
